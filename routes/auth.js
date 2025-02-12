@@ -1,39 +1,43 @@
 const express = require('express');
+const passport = require('passport');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const User = require('../models/User');
 const router = express.Router();
 
-// Register route
-router.post('/register', async (req, res) => {
+router.post('/register.html', async (req, res) => {
     const { username, email, password } = req.body;
 
+    console.log('Received register request:', { username, email, password });  // Log request data
+
     try {
-        // Check if user already exists
         let user = await User.findOne({ email });
         if (user) {
+            console.log('User already exists:', email);
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        // Create a new user
         user = new User({ username, email, password });
 
-        // Save user to the database
+        // Hash password before saving
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+
         await user.save();
+        console.log('User registered:', { id: user._id, username, email });
 
-        // Generate a JWT token
         const token = jwt.sign({ id: user._id }, 'secret_key', { expiresIn: '1h' });
-
-        res.status(201).json({ token });  // Send the token back to the client
+        res.status(201).json({ token });
     } catch (err) {
-        console.error(err);
+        console.error('Error during registration:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Login route
+// Login Route (using Passport.js)
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
+    console.log('Login attempt:', email);
 
     try {
         const user = await User.findOne({ email });
@@ -41,20 +45,25 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
-        // Compare the entered password with the stored hashed password
-        const isMatch = await user.matchPassword(password);
+        const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
-        // Generate a JWT token
+        console.log('Login successful for:', user.username);
+
         const token = jwt.sign({ id: user._id }, 'secret_key', { expiresIn: '1h' });
 
-        res.json({ token });  // Send the token back to the client
+        res.json({ token });
     } catch (err) {
-        console.error(err);
+        console.error('Error logging in:', err);
         res.status(500).json({ message: 'Server error' });
     }
+});
+
+// Protect route example with Passport.js
+router.get('/protected', passport.authenticate('jwt', { session: false }), (req, res) => {
+    res.json({ message: 'Protected route accessed' });
 });
 
 module.exports = router;
