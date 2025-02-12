@@ -73,6 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
         query: { token }
     });  // Connect to the Socket.io server with token
 
+    // Handle authentication error
+    socket.on('auth error', (data) => {
+        console.error(data.message);
+        localStorage.removeItem('authToken');  // Remove invalid token
+        window.location.href = '/login.html';  // Redirect to login page
+    });
+
     // Get elements
     const form = document.getElementById('chat-form');
     const messageInput = document.getElementById('message');

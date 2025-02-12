@@ -200,12 +200,14 @@ io.on('connection', (socket) => {
     const token = socket.handshake.query.token;
     if (!token) {
         console.log('A user connected without a token');
+        socket.emit('auth error', { message: 'No token provided' });
         return;
     }
 
     jwt.verify(token, 'secret_key', (err, decoded) => {
         if (err) {
             console.error('Failed to authenticate token');
+            socket.emit('auth error', { message: 'Failed to authenticate token' });
             return;
         }
 
